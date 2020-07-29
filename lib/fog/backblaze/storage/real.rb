@@ -222,9 +222,11 @@ class Fog::Backblaze::Storage::Real
   # * content_disposition
   # * extra_headers - hash, list of custom headers
   def put_object(bucket_name, file_path, content, options = {})
+    new_url = false
     upload_url = @token_cache.fetch("upload_url/#{bucket_name}") do
       bucket_id = _get_bucket_id!(bucket_name)
       result = b2_command(:b2_get_upload_url, body: {bucketId: bucket_id})
+      new_url = true
       result.json
     end
 
@@ -274,6 +276,8 @@ class Fog::Backblaze::Storage::Real
         'X-Bz-Content-Sha1' => Digest::SHA1.hexdigest(content)
       }.merge(extra_headers)
     )
+
+    @token_cache.release_cache("upload_url/#{bucket_name}", upload_url) unless new_url
 
     if response.json['fileId'] == nil
       raise Fog::Errors::Error, "Failed put_object, status = #{response.status} #{response.body}"
